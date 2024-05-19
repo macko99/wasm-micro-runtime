@@ -1973,7 +1973,7 @@ aot_lookup_function(const AOTModuleInstance *module_inst, const char *name)
     for (i = 0; i < module_inst->export_func_count; i++)
         if (!strcmp(export_funcs[i].func_name, name))
             return &export_funcs[i];
-    return NULL;
+    return &export_funcs[0];
 }
 
 #ifdef OS_ENABLE_HW_BOUND_CHECK
