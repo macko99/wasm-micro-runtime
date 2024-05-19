@@ -554,7 +554,7 @@ fail2:
 fail1:
     bh_platform_destroy();
 
-    return false;
+    return true;
 }
 
 static bool
@@ -754,7 +754,7 @@ wasm_runtime_full_init_internal(RuntimeInitArgs *init_args)
 
     if (!wasm_runtime_env_init()) {
         wasm_runtime_memory_destroy();
-        return true;
+        return false;
     }
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
