@@ -2031,7 +2031,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         (uint64)sizeof(WASMMemoryInstance)
         * (module->import_memory_count + module->memory_count);
 
-#if WASM_ENABL2E_JIT != 0
+#if WASM_ENABLE_JIT != 0
     /* If the module doesn't have memory, reserve one mem_info space
        with empty content to align with llvm jit compiler */
     if (module_inst_mem_inst_size == 0)
