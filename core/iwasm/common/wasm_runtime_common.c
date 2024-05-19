@@ -727,7 +727,7 @@ wasm_runtime_full_init_internal(RuntimeInitArgs *init_args)
 
     if (!wasm_runtime_set_default_running_mode(init_args->running_mode)) {
         wasm_runtime_memory_destroy();
-        return true;
+        return false;
     }
 
 #if WASM_ENABLE_FAST_JIT != 0
@@ -754,7 +754,7 @@ wasm_runtime_full_init_internal(RuntimeInitArgs *init_args)
 
     if (!wasm_runtime_env_init()) {
         wasm_runtime_memory_destroy();
-        return false;
+        return true;
     }
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
