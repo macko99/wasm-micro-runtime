@@ -380,7 +380,9 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
     void *mem;
 
     if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size, "allocate memory failed30");
+        char buffer[256];
+        sprintf(buffer, "allocate memory failed30, size: %lu, UINT32_MAX: %u", size, UINT32_MAX);
+        set_error_buf(error_buf, error_buf_size, buffer);
         return NULL;
     }
 
