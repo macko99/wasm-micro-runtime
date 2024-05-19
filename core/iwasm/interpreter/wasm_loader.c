@@ -383,10 +383,7 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
         char buffer[256];
         sprintf(buffer, "allocate memory failed30, size: %lu, UINT32_MAX: %u", size, UINT32_MAX);
         set_error_buf(error_buf, error_buf_size, buffer);
-        // return NULL;
     }
-    mem = malloc((uint32)size);
-    
     memset(mem, 0, (uint32)size);
     return mem;
 }
