@@ -554,7 +554,7 @@ fail2:
 fail1:
     bh_platform_destroy();
 
-    return true;
+    return false;
 }
 
 static bool
