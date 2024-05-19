@@ -218,7 +218,7 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
     void *mem;
 
     if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size, "allocate memory failed");
+        set_error_buf(error_buf, error_buf_size, "allocate memory failed33");
         return NULL;
     }
 
@@ -5953,7 +5953,7 @@ wasm_loader_prepare_bytecode(WASMModule *module, WASMFunction *func,
 re_scan:
     if (loader_ctx->code_compiled_size > 0) {
         if (!wasm_loader_ctx_reinit(loader_ctx)) {
-            set_error_buf(error_buf, error_buf_size, "allocate memory failed");
+            set_error_buf(error_buf, error_buf_size, "allocate memory failed34");
             goto fail;
         }
         p = func->code;

@@ -929,7 +929,7 @@ create_fixed_virtual_regs(JitCompContext *cc)
         total_size = (uint64)sizeof(JitMemRegs) * count;
         if (total_size > UINT32_MAX
             || !(cc->memory_regs = jit_calloc((uint32)total_size))) {
-            jit_set_last_error(cc, "allocate memory failed");
+            jit_set_last_error(cc, "allocate memory failed14");
             return false;
         }
 
@@ -951,7 +951,7 @@ create_fixed_virtual_regs(JitCompContext *cc)
         total_size = (uint64)sizeof(JitTableRegs) * count;
         if (total_size > UINT32_MAX
             || !(cc->table_regs = jit_calloc((uint32)total_size))) {
-            jit_set_last_error(cc, "allocate memory failed");
+            jit_set_last_error(cc, "allocate memory failed15");
             return false;
         }
 
@@ -1109,7 +1109,7 @@ init_func_translation(JitCompContext *cc)
         total_size = (uint64)sizeof(JitMemRegs) * count;
         if (total_size > UINT32_MAX
             || !(jit_frame->memory_regs = jit_calloc((uint32)total_size))) {
-            jit_set_last_error(cc, "allocate memory failed");
+            jit_set_last_error(cc, "allocate memory failed16");
             jit_free(jit_frame);
             return NULL;
         }
@@ -1120,7 +1120,7 @@ init_func_translation(JitCompContext *cc)
         total_size = (uint64)sizeof(JitTableRegs) * count;
         if (total_size > UINT32_MAX
             || !(jit_frame->table_regs = jit_calloc((uint32)total_size))) {
-            jit_set_last_error(cc, "allocate memory failed");
+            jit_set_last_error(cc, "allocate memory failed17");
             if (jit_frame->memory_regs)
                 jit_free(jit_frame->memory_regs);
             jit_free(jit_frame);

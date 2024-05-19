@@ -102,7 +102,9 @@ runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
     void *mem;
 
     if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size, "allocate memory failed");
+        char buffer[256];
+        sprintf(buffer, "allocate memory failed4, size: %lu, UINT32_MAX: %u", size, UINT32_MAX);
+        set_error_buf(error_buf, error_buf_size, buffer);
         return NULL;
     }
 
@@ -1388,7 +1390,7 @@ execute_post_instantiate_functions(AOTModuleInstance *module_inst,
             if (!(exec_env = exec_env_created = wasm_exec_env_create(
                       (WASMModuleInstanceCommon *)module_inst,
                       module_inst->default_wasm_stack_size))) {
-                aot_set_exception(module_inst, "allocate memory failed");
+                aot_set_exception(module_inst, "allocate memory failed5");
                 return false;
             }
         }
@@ -2414,7 +2416,7 @@ execute_malloc_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
             if (!(exec_env = exec_env_created = wasm_exec_env_create(
                       (WASMModuleInstanceCommon *)module_inst,
                       module_inst->default_wasm_stack_size))) {
-                wasm_set_exception(module_inst, "allocate memory failed");
+                wasm_set_exception(module_inst, "allocate memory failed6");
                 return false;
             }
         }
@@ -2504,7 +2506,7 @@ execute_free_function(AOTModuleInstance *module_inst, WASMExecEnv *exec_env,
             if (!(exec_env = exec_env_created = wasm_exec_env_create(
                       (WASMModuleInstanceCommon *)module_inst,
                       module_inst->default_wasm_stack_size))) {
-                wasm_set_exception(module_inst, "allocate memory failed");
+                wasm_set_exception(module_inst, "allocate memory failed7");
                 return false;
             }
         }

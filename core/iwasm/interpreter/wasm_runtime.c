@@ -1343,7 +1343,7 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
             if (!(exec_env = exec_env_created = wasm_exec_env_create(
                       (WASMModuleInstanceCommon *)module_inst,
                       module_inst->default_wasm_stack_size))) {
-                wasm_set_exception(module_inst, "allocate memory failed");
+                wasm_set_exception(module_inst, "allocate memory failed35");
                 return false;
             }
         }
@@ -1464,7 +1464,7 @@ execute_malloc_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
             if (!(exec_env = exec_env_created = wasm_exec_env_create(
                       (WASMModuleInstanceCommon *)module_inst,
                       module_inst->default_wasm_stack_size))) {
-                wasm_set_exception(module_inst, "allocate memory failed");
+                wasm_set_exception(module_inst, "allocate memory failed36");
                 return false;
             }
         }
@@ -1554,7 +1554,7 @@ execute_free_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
             if (!(exec_env = exec_env_created = wasm_exec_env_create(
                       (WASMModuleInstanceCommon *)module_inst,
                       module_inst->default_wasm_stack_size))) {
-                wasm_set_exception(module_inst, "allocate memory failed");
+                wasm_set_exception(module_inst, "allocate memory failed37");
                 return false;
             }
         }

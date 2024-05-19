@@ -497,7 +497,7 @@ dump_pgo_prof_data(wasm_module_inst_t module_inst, const char *path)
     }
 
     if (!(buf = wasm_runtime_malloc(len))) {
-        printf("allocate memory failed\n");
+        printf("allocate memory failed40\n");
         return;
     }
 

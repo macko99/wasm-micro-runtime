@@ -1331,7 +1331,7 @@ jit_cc_push_value(JitCompContext *cc, uint8 type, JitReg value)
     }
 
     if (!(jit_value = jit_calloc(sizeof(JitValue)))) {
-        jit_set_last_error(cc, "allocate memory failed");
+        jit_set_last_error(cc, "allocate memory failed18");
         return false;
     }
 

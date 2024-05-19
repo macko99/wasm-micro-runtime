@@ -7018,7 +7018,7 @@ llvm_jit_call_func_bytecode(WASMModuleInstance *module_inst,
         if (size > sizeof(argv1_buf)) {
             if (size > UINT32_MAX
                 || !(argv1 = wasm_runtime_malloc((uint32)size))) {
-                wasm_set_exception(module_inst, "allocate memory failed");
+                wasm_set_exception(module_inst, "allocate memory failed26");
                 ret = false;
                 goto fail;
             }
