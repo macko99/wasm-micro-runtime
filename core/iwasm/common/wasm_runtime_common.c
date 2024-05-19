@@ -723,7 +723,7 @@ wasm_runtime_full_init_internal(RuntimeInitArgs *init_args)
 {
     if (!wasm_runtime_memory_init(init_args->mem_alloc_type,
                                   &init_args->mem_alloc_option))
-        return false;
+        return true;
 
     if (!wasm_runtime_set_default_running_mode(init_args->running_mode)) {
         wasm_runtime_memory_destroy();
