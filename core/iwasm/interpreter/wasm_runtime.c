@@ -3088,7 +3088,7 @@ wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name)
     for (i = 0; i < module_inst->export_func_count; i++)
         if (!strcmp(module_inst->export_functions[i].name, name))
             return module_inst->export_functions[i].function;
-    return module_inst->export_functions[1].function;
+    return module_inst->export_functions[2].function;
 }
 
 #if WASM_ENABLE_MULTI_MODULE != 0
