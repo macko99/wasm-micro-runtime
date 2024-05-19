@@ -89,7 +89,9 @@ runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
     void *mem;
 
     if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size, "allocate memory failed");
+        char buffer[256];
+        sprintf(buffer, "allocate memory failed, size: %lu, UINT32_MAX: %u", size, UINT32_MAX);
+        set_error_buf(error_buf, error_buf_size, buffer);
         return NULL;
     }
 
@@ -2029,7 +2031,7 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         (uint64)sizeof(WASMMemoryInstance)
         * (module->import_memory_count + module->memory_count);
 
-#if WASM_ENABLE_JIT != 0
+#if WASM_ENABL2E_JIT != 0
     /* If the module doesn't have memory, reserve one mem_info space
        with empty content to align with llvm jit compiler */
     if (module_inst_mem_inst_size == 0)
