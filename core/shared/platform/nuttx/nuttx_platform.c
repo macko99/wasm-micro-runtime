@@ -53,7 +53,13 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
     if ((prot & MMAP_PROT_EXEC) != 0) {
         p = up_textheap_memalign(sizeof(void *), size);
         if (p) {
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+            void *dp = os_get_dbus_mirror(p);
+            memset(dp, 0, size);
+            os_dcache_flush();
+#else
             memset(p, 0, size);
+#endif
         }
         return p;
     }
@@ -106,7 +112,7 @@ void
 os_dcache_flush()
 {
 #if defined(CONFIG_ARCH_USE_TEXT_HEAP) \
-    && defined(CONFIG_ARCH_TEXT_HEAP_SEPARATE_DATA_ADDRESS)
+    && defined(CONFIG_ARCH_HAVE_TEXT_HEAP_SEPARATE_DATA_ADDRESS)
     up_textheap_data_sync();
 #endif
 }
@@ -120,7 +126,7 @@ void *
 os_get_dbus_mirror(void *ibus)
 {
 #if defined(CONFIG_ARCH_USE_TEXT_HEAP) \
-    && defined(CONFIG_ARCH_TEXT_HEAP_SEPARATE_DATA_ADDRESS)
+    && defined(CONFIG_ARCH_HAVE_TEXT_HEAP_SEPARATE_DATA_ADDRESS)
     return up_textheap_data_address(ibus);
 #else
     return ibus;

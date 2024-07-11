@@ -250,13 +250,13 @@ typedef union WASMValue {
 #endif /* end of WASM_VALUE_DEFINED */
 
 typedef struct WASMStructNewInitValues {
-    uint8 type_idx;
+    uint32 type_idx;
     uint32 count;
     WASMValue fields[1];
 } WASMStructNewInitValues;
 
 typedef struct WASMArrayNewInitValues {
-    uint8 type_idx;
+    uint32 type_idx;
     uint32 length;
     WASMValue elem_data[1];
 } WASMArrayNewInitValues;
@@ -480,11 +480,11 @@ typedef void *WASMString;
 #endif /* end of WASM_ENABLE_STRINGREF != 0 */
 #endif /* end of WASM_ENABLE_GC != 0 */
 
-typedef struct WASMTable {
+typedef struct WASMTableType {
     uint8 elem_type;
     /**
      * 0: no max size and not shared
-     * 1: hax max size
+     * 1: has max size
      * 2: shared
      */
     uint8 flags;
@@ -494,6 +494,12 @@ typedef struct WASMTable {
     uint32 max_size;
 #if WASM_ENABLE_GC != 0
     WASMRefType *elem_ref_type;
+#endif
+} WASMTableType;
+
+typedef struct WASMTable {
+    WASMTableType table_type;
+#if WASM_ENABLE_GC != 0
     /* init expr for the whole table */
     InitializerExpression init_expr;
 #endif
@@ -513,20 +519,15 @@ typedef struct WASMMemory {
     uint32 init_page_count;
     uint32 max_page_count;
 } WASMMemory;
+#ifndef WASM_MEMORY_T_DEFINED
+#define WASM_MEMORY_T_DEFINED
+typedef struct WASMMemory WASMMemoryType;
+#endif
 
 typedef struct WASMTableImport {
     char *module_name;
     char *field_name;
-    /* 0: no max size, 1: has max size */
-    uint8 elem_type;
-    uint8 flags;
-    bool possible_grow;
-    uint32 init_size;
-    /* specified if (flags & 1), else it is 0x10000 */
-    uint32 max_size;
-#if WASM_ENABLE_GC != 0
-    WASMRefType *elem_ref_type;
-#endif
+    WASMTableType table_type;
 #if WASM_ENABLE_MULTI_MODULE != 0
     WASMModule *import_module;
     WASMTable *import_table_linked;
@@ -536,10 +537,7 @@ typedef struct WASMTableImport {
 typedef struct WASMMemoryImport {
     char *module_name;
     char *field_name;
-    uint32 flags;
-    uint32 num_bytes_per_page;
-    uint32 init_page_count;
-    uint32 max_page_count;
+    WASMMemoryType mem_type;
 #if WASM_ENABLE_MULTI_MODULE != 0
     WASMModule *import_module;
     WASMMemory *import_memory_linked;
@@ -752,6 +750,7 @@ typedef struct WASMDataSeg {
     bool is_passive;
 #endif
     uint8 *data;
+    bool is_data_cloned;
 } WASMDataSeg;
 
 typedef struct BlockAddr {

@@ -398,12 +398,13 @@ memories_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
     /* instantiate memories from import section */
     import = module->import_memories;
     for (i = 0; i < module->import_memory_count; i++, import++, memory++) {
-        uint32 num_bytes_per_page = import->u.memory.num_bytes_per_page;
-        uint32 init_page_count = import->u.memory.init_page_count;
+        uint32 num_bytes_per_page =
+            import->u.memory.mem_type.num_bytes_per_page;
+        uint32 init_page_count = import->u.memory.mem_type.init_page_count;
         uint32 max_page_count = wasm_runtime_get_max_mem(
-            max_memory_pages, import->u.memory.init_page_count,
-            import->u.memory.max_page_count);
-        uint32 flags = import->u.memory.flags;
+            max_memory_pages, import->u.memory.mem_type.init_page_count,
+            import->u.memory.mem_type.max_page_count);
+        uint32 flags = import->u.memory.mem_type.flags;
         uint32 actual_heap_size = heap_size;
 
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -534,9 +535,9 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 #endif
         {
             /* in order to save memory, alloc resource as few as possible */
-            max_size_fixed = import->u.table.possible_grow
-                                 ? import->u.table.max_size
-                                 : import->u.table.init_size;
+            max_size_fixed = import->u.table.table_type.possible_grow
+                                 ? import->u.table.table_type.max_size
+                                 : import->u.table.table_type.init_size;
 
             /* it is a built-in table, every module has its own */
             total_size = offsetof(WASMTableInstance, elems);
@@ -557,8 +558,8 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
 #if WASM_ENABLE_MULTI_MODULE != 0
         *table_linked = table_inst_linked;
         if (table_inst_linked != NULL) {
-#if WASM_ENABLE_GC != 0
             table->elem_type = table_inst_linked->elem_type;
+#if WASM_ENABLE_GC != 0
             table->elem_ref_type = table_inst_linked->elem_ref_type;
 #endif
             table->cur_size = table_inst_linked->cur_size;
@@ -567,11 +568,12 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         else
 #endif
         {
+            table->elem_type = import->u.table.table_type.elem_type;
 #if WASM_ENABLE_GC != 0
-            table->elem_type = import->u.table.elem_type;
-            table->elem_ref_type.elem_ref_type = import->u.table.elem_ref_type;
+            table->elem_ref_type.elem_ref_type =
+                import->u.table.table_type.elem_ref_type;
 #endif
-            table->cur_size = import->u.table.init_size;
+            table->cur_size = import->u.table.table_type.init_size;
             table->max_size = max_size_fixed;
         }
 
@@ -588,11 +590,11 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         total_size = offsetof(WASMTableInstance, elems);
 #if WASM_ENABLE_MULTI_MODULE != 0
         /* in case, a module which imports this table will grow it */
-        max_size_fixed = module->tables[i].max_size;
+        max_size_fixed = module->tables[i].table_type.max_size;
 #else
-        max_size_fixed = module->tables[i].possible_grow
-                             ? module->tables[i].max_size
-                             : module->tables[i].init_size;
+        max_size_fixed = module->tables[i].table_type.possible_grow
+                             ? module->tables[i].table_type.max_size
+                             : module->tables[i].table_type.init_size;
 #endif
 #if WASM_ENABLE_GC == 0
         /* Store function indexes */
@@ -611,11 +613,12 @@ tables_instantiate(const WASMModule *module, WASMModuleInstance *module_inst,
         /* For GC, all elements have already been set to NULL_REF (0) as
            uninitialized elements */
 #endif
+        table->elem_type = module->tables[i].table_type.elem_type;
 #if WASM_ENABLE_GC != 0
-        table->elem_type = module->tables[i].elem_type;
-        table->elem_ref_type.elem_ref_type = module->tables[i].elem_ref_type;
+        table->elem_ref_type.elem_ref_type =
+            module->tables[i].table_type.elem_ref_type;
 #endif
-        table->cur_size = module->tables[i].init_size;
+        table->cur_size = module->tables[i].table_type.init_size;
         table->max_size = max_size_fixed;
 
         table = (WASMTableInstance *)((uint8 *)table + (uint32)total_size);
@@ -868,6 +871,174 @@ check_global_init_expr(const WASMModule *module, uint32 global_index,
     return true;
 }
 
+#if WASM_ENABLE_GC != 0
+/* Instantiate struct global variable recursively */
+static WASMStructObjectRef
+instantiate_struct_global_recursive(WASMModule *module,
+                                    WASMModuleInstance *module_inst,
+                                    uint32 type_idx, uint8 flag,
+                                    WASMStructNewInitValues *init_values,
+                                    char *error_buf, uint32 error_buf_size)
+{
+    WASMRttType *rtt_type;
+    WASMStructObjectRef struct_obj;
+    WASMStructType *struct_type;
+
+    struct_type = (WASMStructType *)module->types[type_idx];
+
+    if (!(rtt_type = wasm_rtt_type_new((WASMType *)struct_type, type_idx,
+                                       module->rtt_types, module->type_count,
+                                       &module->rtt_type_lock))) {
+        set_error_buf(error_buf, error_buf_size, "create rtt object failed");
+        return NULL;
+    }
+
+    if (!(struct_obj = wasm_struct_obj_new_internal(
+              module_inst->e->common.gc_heap_handle, rtt_type))) {
+        set_error_buf(error_buf, error_buf_size, "create struct object failed");
+        return NULL;
+    }
+
+    if (flag == INIT_EXPR_TYPE_STRUCT_NEW) {
+        uint32 field_idx;
+        WASMRefTypeMap *ref_type_map = struct_type->ref_type_maps;
+
+        bh_assert(init_values->count == struct_type->field_count);
+
+        for (field_idx = 0; field_idx < init_values->count; field_idx++) {
+            uint8 field_type = struct_type->fields[field_idx].field_type;
+            WASMRefType *field_ref_type = NULL;
+            if (wasm_is_type_multi_byte_type(field_type)) {
+                field_ref_type = ref_type_map->ref_type;
+            }
+
+            if (wasm_reftype_is_subtype_of(field_type, field_ref_type,
+                                           REF_TYPE_STRUCTREF, NULL,
+                                           module->types, module->type_count)
+                || wasm_reftype_is_subtype_of(field_type, field_ref_type,
+                                              REF_TYPE_ARRAYREF, NULL,
+                                              module->types, module->type_count)
+                || wasm_reftype_is_subtype_of(
+                    field_type, field_ref_type, REF_TYPE_FUNCREF, NULL,
+                    module->types, module->type_count)) {
+                WASMType *wasm_type;
+                int32 heap_type =
+                    ref_type_map->ref_type->ref_ht_common.heap_type;
+                WASMValue *wasm_value = &init_values->fields[field_idx];
+                WASMValue field_value = { 0 };
+
+                bh_assert(heap_type >= 0);
+                wasm_type = module->types[heap_type];
+
+                bh_assert(wasm_type->type_flag == WASM_TYPE_STRUCT
+                          || wasm_type->type_flag == WASM_TYPE_ARRAY
+                          || wasm_type->type_flag == WASM_TYPE_FUNC);
+
+                if (wasm_type->type_flag == WASM_TYPE_STRUCT) {
+                    WASMStructNewInitValues *init_values1 =
+                        (WASMStructNewInitValues *)wasm_value->data;
+                    WASMStructObjectRef field =
+                        instantiate_struct_global_recursive(
+                            module, module_inst, heap_type,
+                            init_values1 ? INIT_EXPR_TYPE_STRUCT_NEW
+                                         : INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT,
+                            init_values1, error_buf, error_buf_size);
+                    field_value.gc_obj = (WASMObjectRef)field;
+                    wasm_struct_obj_set_field(struct_obj, field_idx,
+                                              &field_value);
+                }
+                else if (wasm_type->type_flag == WASM_TYPE_ARRAY) {
+                    /* struct object's field is an array obj */
+                    set_error_buf(error_buf, error_buf_size,
+                                  "array as a field in struct object is "
+                                  "not supported in constant init expr");
+                    return NULL;
+                }
+                else if (wasm_type->type_flag == WASM_TYPE_FUNC) {
+                    WASMFuncObjectRef func_obj = NULL;
+                    /* UINT32_MAX indicates that it is a null reference */
+                    if (wasm_value->u32 != UINT32_MAX) {
+                        if (!(func_obj = wasm_create_func_obj(
+                                  module_inst, wasm_value->u32, false,
+                                  error_buf, error_buf_size))) {
+                            return NULL;
+                        }
+                    }
+                    field_value.gc_obj = (WASMObjectRef)func_obj;
+                    wasm_struct_obj_set_field(struct_obj, field_idx,
+                                              &field_value);
+                }
+            }
+            else {
+                wasm_struct_obj_set_field(struct_obj, field_idx,
+                                          &init_values->fields[field_idx]);
+            }
+            if (wasm_is_type_multi_byte_type(field_type)) {
+                ref_type_map++;
+            }
+        }
+    }
+
+    return struct_obj;
+}
+
+static WASMArrayObjectRef
+instantiate_array_global_recursive(WASMModule *module,
+                                   WASMModuleInstance *module_inst,
+                                   uint32 type_idx, uint8 flag, uint32 len,
+                                   WASMValue *array_init_value,
+                                   WASMArrayNewInitValues *init_values,
+                                   char *error_buf, uint32 error_buf_size)
+{
+    WASMRttType *rtt_type;
+    WASMArrayObjectRef array_obj;
+    WASMArrayType *array_type;
+
+    array_type = (WASMArrayType *)module->types[type_idx];
+
+    if (!(rtt_type = wasm_rtt_type_new((WASMType *)array_type, type_idx,
+                                       module->rtt_types, module->type_count,
+                                       &module->rtt_type_lock))) {
+        set_error_buf(error_buf, error_buf_size, "create rtt object failed");
+        return NULL;
+    }
+
+    if (!(array_obj =
+              wasm_array_obj_new_internal(module_inst->e->common.gc_heap_handle,
+                                          rtt_type, len, array_init_value))) {
+        set_error_buf(error_buf, error_buf_size, "create array object failed");
+        return NULL;
+    }
+
+    if (flag == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
+        uint32 elem_idx;
+        uint8 elem_type = array_type->elem_type;
+        WASMRefType *elem_ref_type = array_type->elem_ref_type;
+
+        bh_assert(init_values);
+
+        if (wasm_reftype_is_subtype_of(elem_type, elem_ref_type,
+                                       REF_TYPE_STRUCTREF, NULL, module->types,
+                                       module->type_count)
+            || wasm_reftype_is_subtype_of(elem_type, elem_ref_type,
+                                          REF_TYPE_ARRAYREF, NULL,
+                                          module->types, module->type_count)
+            || wasm_reftype_is_subtype_of(elem_type, elem_ref_type,
+                                          REF_TYPE_FUNCREF, NULL, module->types,
+                                          module->type_count)) {
+            /* TODO */
+        }
+
+        for (elem_idx = 0; elem_idx < len; elem_idx++) {
+            wasm_array_obj_set_elem(array_obj, elem_idx,
+                                    &init_values->elem_data[elem_idx]);
+        }
+    }
+
+    return array_obj;
+}
+#endif
+
 /**
  * Instantiate globals in a module.
  */
@@ -966,9 +1137,7 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
             case INIT_EXPR_TYPE_STRUCT_NEW:
             case INIT_EXPR_TYPE_STRUCT_NEW_DEFAULT:
             {
-                WASMRttType *rtt_type;
                 WASMStructObjectRef struct_obj;
-                WASMStructType *struct_type;
                 WASMStructNewInitValues *init_values = NULL;
                 uint32 type_idx;
 
@@ -980,34 +1149,11 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
                     type_idx = init_expr->u.type_index;
                 }
 
-                struct_type = (WASMStructType *)module->types[type_idx];
-
-                if (!(rtt_type = wasm_rtt_type_new(
-                          (WASMType *)struct_type, type_idx, module->rtt_types,
-                          module->type_count, &module->rtt_type_lock))) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "create rtt object failed");
+                struct_obj = instantiate_struct_global_recursive(
+                    module, module_inst, type_idx, flag, init_values, error_buf,
+                    error_buf_size);
+                if (!struct_obj) {
                     goto fail;
-                }
-
-                if (!(struct_obj = wasm_struct_obj_new_internal(
-                          module_inst->e->common.gc_heap_handle, rtt_type))) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "create struct object failed");
-                    goto fail;
-                }
-
-                if (flag == INIT_EXPR_TYPE_STRUCT_NEW) {
-                    uint32 field_idx;
-
-                    bh_assert(init_values->count == struct_type->field_count);
-
-                    for (field_idx = 0; field_idx < init_values->count;
-                         field_idx++) {
-                        wasm_struct_obj_set_field(
-                            struct_obj, field_idx,
-                            &init_values->fields[field_idx]);
-                    }
                 }
 
                 global->initial_value.gc_obj = (void *)struct_obj;
@@ -1017,17 +1163,15 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
             case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
             case INIT_EXPR_TYPE_ARRAY_NEW_FIXED:
             {
-                WASMRttType *rtt_type;
                 WASMArrayObjectRef array_obj;
-                WASMArrayType *array_type;
                 WASMArrayNewInitValues *init_values = NULL;
-                WASMValue *arr_init_val = NULL, empty_val = { 0 };
+                WASMValue *array_init_value = NULL, empty_value = { 0 };
                 uint32 type_idx, len;
 
                 if (flag == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
                     type_idx = init_expr->u.array_new_default.type_index;
                     len = init_expr->u.array_new_default.length;
-                    arr_init_val = &empty_val;
+                    array_init_value = &empty_value;
                 }
                 else {
                     init_values = (WASMArrayNewInitValues *)init_expr->u.data;
@@ -1035,42 +1179,15 @@ globals_instantiate(WASMModule *module, WASMModuleInstance *module_inst,
                     len = init_values->length;
 
                     if (flag == INIT_EXPR_TYPE_ARRAY_NEW) {
-                        arr_init_val = init_values->elem_data;
+                        array_init_value = init_values->elem_data;
                     }
                 }
 
-                array_type = (WASMArrayType *)module->types[type_idx];
-
-                if (!(rtt_type = wasm_rtt_type_new(
-                          (WASMType *)array_type, type_idx, module->rtt_types,
-                          module->type_count, &module->rtt_type_lock))) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "create rtt object failed");
-                    goto fail;
-                }
-
-                if (!(array_obj = wasm_array_obj_new_internal(
-                          module_inst->e->common.gc_heap_handle, rtt_type, len,
-                          arr_init_val))) {
-                    set_error_buf(error_buf, error_buf_size,
-                                  "create array object failed");
-                    goto fail;
-                }
-
-                if (flag == INIT_EXPR_TYPE_ARRAY_NEW_FIXED) {
-                    uint32 elem_idx;
-
-                    bh_assert(init_values);
-
-                    for (elem_idx = 0; elem_idx < len; elem_idx++) {
-                        wasm_array_obj_set_elem(
-                            array_obj, elem_idx,
-                            &init_values->elem_data[elem_idx]);
-                    }
-                }
+                array_obj = instantiate_array_global_recursive(
+                    module, module_inst, type_idx, flag, len, array_init_value,
+                    init_values, error_buf, error_buf_size);
 
                 global->initial_value.gc_obj = (void *)array_obj;
-
                 break;
             }
             case INIT_EXPR_TYPE_I31_NEW:
@@ -1595,35 +1712,72 @@ check_linked_symbol(WASMModuleInstance *module_inst, char *error_buf,
             && !func->import_func_linked
 #endif
         ) {
-#if WASM_ENABLE_WAMR_COMPILER == 0
             LOG_WARNING("warning: failed to link import function (%s, %s)",
                         func->module_name, func->field_name);
-            /* will throw exception only if calling */
-#else
-            /* do nothing to avoid confused message */
-#endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
         }
     }
 
     for (i = 0; i < module->import_global_count; i++) {
         WASMGlobalImport *global = &((module->import_globals + i)->u.global);
+
         if (!global->is_linked) {
 #if WASM_ENABLE_SPEC_TEST != 0
             set_error_buf(error_buf, error_buf_size,
                           "unknown import or incompatible import type");
             return false;
 #else
-#if WASM_ENABLE_WAMR_COMPILER == 0
             set_error_buf_v(error_buf, error_buf_size,
                             "failed to link import global (%s, %s)",
                             global->module_name, global->field_name);
             return false;
-#else
-            /* do nothing to avoid confused message */
-#endif /* WASM_ENABLE_WAMR_COMPILER == 0 */
 #endif /* WASM_ENABLE_SPEC_TEST != 0 */
         }
     }
+
+    for (i = 0; i < module->import_table_count; i++) {
+        WASMTableImport *table = &((module->import_tables + i)->u.table);
+
+        if (!wasm_runtime_is_built_in_module(table->module_name)
+#if WASM_ENABLE_MULTI_MODULE != 0
+            && !table->import_table_linked
+#endif
+        ) {
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to link import table (%s, %s)",
+                            table->module_name, table->field_name);
+            return false;
+        }
+    }
+
+    for (i = 0; i < module->import_memory_count; i++) {
+        WASMMemoryImport *memory = &((module->import_memories + i)->u.memory);
+
+        if (!wasm_runtime_is_built_in_module(memory->module_name)
+#if WASM_ENABLE_MULTI_MODULE != 0
+            && !memory->import_memory_linked
+#endif
+        ) {
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to link import memory (%s, %s)",
+                            memory->module_name, memory->field_name);
+            return false;
+        }
+    }
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_TAGS != 0
+    for (i = 0; i < module->import_tag_count; i++) {
+        WASMTagImport *tag = &((module->import_tags + i)->u.tag);
+
+        if (!tag->import_tag_linked) {
+            set_error_buf_v(error_buf, error_buf_size,
+                            "failed to link import tag (%s, %s)",
+                            tag->module_name, tag->field_name);
+            return false;
+        }
+    }
+#endif /* WASM_ENABLE_TAGS != 0 */
+#endif
 
     return true;
 }
@@ -1706,7 +1860,6 @@ wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
     WASMModule *module = module_inst->module;
     WASMRttTypeRef rtt_type;
     WASMFuncObjectRef func_obj;
-    WASMFunctionInstance *func_inst;
     WASMFuncType *func_type;
     uint32 type_idx;
 
@@ -1715,17 +1868,22 @@ wasm_create_func_obj(WASMModuleInstance *module_inst, uint32 func_idx,
         error_buf_size = sizeof(module_inst->cur_exception);
     }
 
-    if (func_idx >= module_inst->e->function_count) {
+    if (func_idx >= module->import_function_count + module->function_count) {
         set_error_buf_v(error_buf, error_buf_size, "unknown function %d",
                         func_idx);
         return NULL;
     }
 
-    func_inst = &module_inst->e->functions[func_idx];
-    func_type = func_inst->is_import_func ? func_inst->u.func_import->func_type
-                                          : func_inst->u.func->func_type;
-    type_idx = func_inst->is_import_func ? func_inst->u.func_import->type_idx
-                                         : func_inst->u.func->type_idx;
+    if (func_idx < module->import_function_count) {
+        func_type = module->import_functions[func_idx].u.function.func_type;
+        type_idx = module->import_functions[func_idx].u.function.type_idx;
+    }
+    else {
+        func_type = module->functions[func_idx - module->import_function_count]
+                        ->func_type;
+        type_idx = module->functions[func_idx - module->import_function_count]
+                       ->type_idx;
+    }
 
     if (!(rtt_type = wasm_rtt_type_new((WASMType *)func_type, type_idx,
                                        module->rtt_types, module->type_count,
@@ -2047,23 +2205,26 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
         WASMTableImport *import_table = &module->import_tables[i].u.table;
         table_size += offsetof(WASMTableInstance, elems);
 #if WASM_ENABLE_MULTI_MODULE != 0
-        table_size +=
-            (uint64)sizeof(table_elem_type_t) * import_table->max_size;
+        table_size += (uint64)sizeof(table_elem_type_t)
+                      * import_table->table_type.max_size;
 #else
         table_size += (uint64)sizeof(table_elem_type_t)
-                      * (import_table->possible_grow ? import_table->max_size
-                                                     : import_table->init_size);
+                      * (import_table->table_type.possible_grow
+                             ? import_table->table_type.max_size
+                             : import_table->table_type.init_size);
 #endif
     }
     for (i = 0; i < module->table_count; i++) {
         WASMTable *table = module->tables + i;
         table_size += offsetof(WASMTableInstance, elems);
 #if WASM_ENABLE_MULTI_MODULE != 0
-        table_size += (uint64)sizeof(table_elem_type_t) * table->max_size;
+        table_size +=
+            (uint64)sizeof(table_elem_type_t) * table->table_type.max_size;
 #else
         table_size +=
             (uint64)sizeof(table_elem_type_t)
-            * (table->possible_grow ? table->max_size : table->init_size);
+            * (table->table_type.possible_grow ? table->table_type.max_size
+                                               : table->table_type.init_size);
 #endif
     }
     total_size += table_size;
@@ -2366,12 +2527,11 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
             (uint64)memory->num_bytes_per_page * memory->cur_page_count;
         bh_assert(memory_data || memory_size == 0);
 
-        bh_assert(
-            data_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL
-            || (data_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I32_CONST
-                && !memory->is_memory64)
-            || (data_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_I64_CONST
-                && memory->is_memory64));
+        bh_assert(data_seg->base_offset.init_expr_type
+                      == INIT_EXPR_TYPE_GET_GLOBAL
+                  || data_seg->base_offset.init_expr_type
+                         == (memory->is_memory64 ? INIT_EXPR_TYPE_I64_CONST
+                                                 : INIT_EXPR_TYPE_I32_CONST));
 
         if (data_seg->base_offset.init_expr_type == INIT_EXPR_TYPE_GET_GLOBAL) {
             if (!check_global_init_expr(module,
@@ -3065,9 +3225,6 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
         wasm_runtime_free(module_inst->c_api_func_imports);
 
     if (!is_sub_inst) {
-#if WASM_ENABLE_WASI_NN != 0
-        wasi_nn_destroy(module_inst);
-#endif
         wasm_native_call_context_dtors((WASMModuleInstanceCommon *)module_inst);
     }
 
