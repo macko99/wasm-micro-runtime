@@ -89,10 +89,12 @@ runtime_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
     void *mem;
 
     if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size, "allocate memory failed");
+        char buffer[256];
+        sprintf(buffer, "allocate memory failed, size: %lu, UINT32_MAX: %u", size, UINT32_MAX);
+        set_error_buf(error_buf, error_buf_size, buffer);
         return NULL;
     }
-
+    // mem = malloc((uint32)size);
     memset(mem, 0, (uint32)size);
     return mem;
 }
@@ -1458,7 +1460,7 @@ execute_post_instantiate_functions(WASMModuleInstance *module_inst,
             if (!(exec_env = exec_env_created = wasm_exec_env_create(
                       (WASMModuleInstanceCommon *)module_inst,
                       module_inst->default_wasm_stack_size))) {
-                wasm_set_exception(module_inst, "allocate memory failed");
+                wasm_set_exception(module_inst, "allocate memory failed35");
                 return false;
             }
         }
@@ -1579,7 +1581,7 @@ execute_malloc_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
             if (!(exec_env = exec_env_created = wasm_exec_env_create(
                       (WASMModuleInstanceCommon *)module_inst,
                       module_inst->default_wasm_stack_size))) {
-                wasm_set_exception(module_inst, "allocate memory failed");
+                wasm_set_exception(module_inst, "allocate memory failed36");
                 return false;
             }
         }
@@ -1669,7 +1671,7 @@ execute_free_function(WASMModuleInstance *module_inst, WASMExecEnv *exec_env,
             if (!(exec_env = exec_env_created = wasm_exec_env_create(
                       (WASMModuleInstanceCommon *)module_inst,
                       module_inst->default_wasm_stack_size))) {
-                wasm_set_exception(module_inst, "allocate memory failed");
+                wasm_set_exception(module_inst, "allocate memory failed37");
                 return false;
             }
         }
@@ -3243,7 +3245,7 @@ wasm_lookup_function(const WASMModuleInstance *module_inst, const char *name)
     for (i = 0; i < module_inst->export_func_count; i++)
         if (!strcmp(module_inst->export_functions[i].name, name))
             return module_inst->export_functions[i].function;
-    return NULL;
+    return module_inst->export_functions[1].function;
 }
 
 #if WASM_ENABLE_MULTI_MODULE != 0

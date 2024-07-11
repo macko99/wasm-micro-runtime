@@ -37,11 +37,13 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
     void *mem;
 
     if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
+        char buffer[256];
+        sprintf(buffer, "allocate memory failed8, size: %lu, UINT32_MAX: %u", size, UINT32_MAX);
         if (module_inst != NULL) {
-            wasm_runtime_set_exception(module_inst, "allocate memory failed");
+            wasm_runtime_set_exception(module_inst, buffer);
         }
         else if (error_buf != NULL) {
-            set_error_buf(error_buf, error_buf_size, "allocate memory failed");
+            set_error_buf(error_buf, error_buf_size, buffer);
         }
         return NULL;
     }
@@ -222,7 +224,7 @@ execute_main(WASMModuleInstanceCommon *module_inst, int32 argc, char *argv[])
         if (total_size >= UINT32_MAX
             || !(argv_buf_offset = wasm_runtime_module_malloc(
                      module_inst, total_size, (void **)&argv_buf))) {
-            wasm_runtime_set_exception(module_inst, "allocate memory failed");
+            wasm_runtime_set_exception(module_inst, "allocate memory failed9");
             return false;
         }
 

@@ -286,7 +286,9 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
     void *mem;
 
     if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size, "allocate memory failed");
+        char buffer[256];
+        sprintf(buffer, "allocate memory failed1, size: %lu, UINT32_MAX: %u", size, UINT32_MAX);
+        set_error_buf(error_buf, error_buf_size, buffer);
         return NULL;
     }
 
@@ -2421,7 +2423,7 @@ load_object_data_sections(const uint8 **p_buf, const uint8 *buf_end,
             && !(data_sections[i].data =
                      os_mmap(NULL, data_sections[i].size, map_prot, map_flags,
                              os_get_invalid_handle()))) {
-            set_error_buf(error_buf, error_buf_size, "allocate memory failed");
+            set_error_buf(error_buf, error_buf_size, "allocate memory failed2");
             return false;
         }
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
@@ -3487,7 +3489,7 @@ load_relocation_section(const uint8 *buf, const uint8 *buf_end,
                     got_item = wasm_runtime_malloc(sizeof(GOTItem));
                     if (!got_item) {
                         set_error_buf(error_buf, error_buf_size,
-                                      "allocate memory failed");
+                                      "allocate memory failed3");
                         goto fail;
                     }
 

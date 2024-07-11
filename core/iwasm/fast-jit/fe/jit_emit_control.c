@@ -761,16 +761,16 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
 
     /* Allocate memory */
     if (!(block = jit_calloc(sizeof(JitBlock)))) {
-        jit_set_last_error(cc, "allocate memory failed");
+        jit_set_last_error(cc, "allocate memory failed21");
         return false;
     }
 
     if (param_count && !(block->param_types = jit_calloc(param_count))) {
-        jit_set_last_error(cc, "allocate memory failed");
+        jit_set_last_error(cc, "allocate memory failed22");
         goto fail;
     }
     if (result_count && !(block->result_types = jit_calloc(result_count))) {
-        jit_set_last_error(cc, "allocate memory failed");
+        jit_set_last_error(cc, "allocate memory failed23");
         goto fail;
     }
 
@@ -1159,7 +1159,7 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
 
     /* Clone current jit frame to a new jit fame */
     if (!(jit_frame_cloned = jit_frame_clone(jit_frame))) {
-        jit_set_last_error(cc, "allocate memory failed");
+        jit_set_last_error(cc, "allocate memory failed24");
         goto fail;
     }
 

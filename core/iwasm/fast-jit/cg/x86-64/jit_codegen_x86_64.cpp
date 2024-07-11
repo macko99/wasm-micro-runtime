@@ -7606,7 +7606,7 @@ jit_codegen_gen_native(JitCompContext *cc)
 
     if (!(label_offsets =
               (uint32 *)jit_calloc(((uint32)sizeof(uint32)) * label_num))) {
-        jit_set_last_error(cc, "allocate memory failed");
+        jit_set_last_error(cc, "allocate memory failed19");
         goto fail;
     }
 
@@ -8333,7 +8333,7 @@ jit_codegen_gen_native(JitCompContext *cc)
     code_buf = (char *)code.sectionById(0)->buffer().data();
     code_size = code.sectionById(0)->buffer().size();
     if (!(stream = (char *)jit_code_cache_alloc(code_size))) {
-        jit_set_last_error(cc, "allocate memory failed");
+        jit_set_last_error(cc, "allocate memory failed20");
         goto fail;
     }
 

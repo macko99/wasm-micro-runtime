@@ -863,7 +863,7 @@ copy_stack_values(WASMModuleInstance *module, uint32 *frame_lp, uint32 arity,
         uint64 total_size = sizeof(uint32) * (uint64)total_cell_num;
         if (total_size >= UINT32_MAX
             || !(tmp_buf = wasm_runtime_malloc((uint32)total_size))) {
-            wasm_set_exception(module, "allocate memory failed");
+            wasm_set_exception(module, "allocate memory failed27");
             goto fail;
         }
     }
@@ -873,7 +873,7 @@ copy_stack_values(WASMModuleInstance *module, uint32 *frame_lp, uint32 arity,
         uint64 total_size = sizeof(uint8) * (uint64)total_cell_num;
         if (total_size >= UINT32_MAX
             || !(tmp_ref_buf = wasm_runtime_malloc((uint32)total_size))) {
-            wasm_set_exception(module, "allocate memory failed");
+            wasm_set_exception(module, "allocate memory failed28");
             goto fail;
         }
     }
@@ -5761,7 +5761,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         if (cur_func->param_cell_num > 0
             && !(lp_base = lp = wasm_runtime_malloc(cur_func->param_cell_num
                                                     * sizeof(uint32)))) {
-            wasm_set_exception(module, "allocate memory failed");
+            wasm_set_exception(module, "allocate memory failed29");
             goto got_exception;
         }
         for (i = 0; i < cur_func->param_count; i++) {
