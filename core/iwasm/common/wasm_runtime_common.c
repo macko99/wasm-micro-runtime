@@ -1633,10 +1633,10 @@ wasm_runtime_destroy_exec_env(WASMExecEnv *exec_env)
 bool
 wasm_runtime_init_thread_env(void)
 {
-// #ifdef BH_PLATFORM_WINDOWS
-//     if (os_thread_env_init() != 0)
-//         return false;
-// #endif
+#ifdef BH_PLATFORM_WINDOWS
+    if (os_thread_env_init() != 0)
+        return false;
+#endif
 
 // #ifdef OS_ENABLE_HW_BOUND_CHECK
 //     if (!runtime_signal_init()) {
