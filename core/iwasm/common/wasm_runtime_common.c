@@ -1638,18 +1638,18 @@ wasm_runtime_init_thread_env(void)
         return false;
 #endif
 
-// #ifdef OS_ENABLE_HW_BOUND_CHECK
-//     if (!runtime_signal_init()) {
-// #ifdef BH_PLATFORM_WINDOWS
-//         os_thread_env_destroy();
-// #endif
-//         return false;
-//     }
-// #endif
+#ifdef OS_ENABLE_HW_BOUND_CHECK
+    if (!runtime_signal_init()) {
+#ifdef BH_PLATFORM_WINDOWS
+        os_thread_env_destroy();
+#endif
+        return false;
+    }
+#endif
 
-// #if WASM_ENABLE_THREAD_MGR != 0 && defined(OS_ENABLE_WAKEUP_BLOCKING_OP)
-//     os_end_blocking_op();
-// #endif
+#if WASM_ENABLE_THREAD_MGR != 0 && defined(OS_ENABLE_WAKEUP_BLOCKING_OP)
+    os_end_blocking_op();
+#endif
 
     return true;
 }
